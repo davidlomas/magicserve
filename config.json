@@ -1,0 +1,20 @@
+[
+    {
+        "path": "../magicompras.com",
+        "domain": "magicompras.com.test",
+        "type": "node",
+        "port": 3000
+    },
+    {
+        "path": "../api.magicompras.com",
+        "domain": "api.magicompras.com.test",
+        "type": "php",
+        "port": 3001
+    },
+    {
+        "path": "../api.multiventas.mx/public",
+        "domain": "api.multiventas.mx.test",
+        "type": "php",
+        "port": 3002
+    }
+]
