@@ -31,11 +31,11 @@ Once installed globally, navigate to any folder on your computer that will serve
 magicserve init
 ```
 
-This command will automatically create a base **`config.json`** file in the current directory. 
+This command will automatically create a base **`magicserve.json`** file in the current directory. 
 
-### Configuration File: `config.json`
+### Configuration File: `magicserve.json`
 
-Your central directory manages and starts the applications referenced within the **`config.json`**. Its structure is this simple:
+Your central directory manages and starts the applications referenced within the **`magicserve.json`**. Its structure is this simple:
 
 ```json
 [
@@ -64,9 +64,9 @@ Once configured or modified to your liking, you can use the control commands.
 
 ## Available Commands
 
-Within the directory where your `config.json` is located, you have the following magic commands available:
+Within the directory where your `magicserve.json` is located, you have the following magic commands available:
 
-- **`magicserve start`**: Starts all services declared in `config.json` on the defined ports, generates dynamic SSL certificates if necessary, and configures Nginx.
-- **`magicserve stop`**: Orderly stops the active services mentioned in your `config.json`.
+- **`magicserve start`**: Starts all services declared in `magicserve.json` on the defined ports, generates dynamic SSL certificates if necessary, and configures Nginx.
+- **`magicserve stop`**: Orderly stops the active services mentioned in your `magicserve.json`.
 - **`magicserve status`**: Shows a terminal output of which projects are currently active and their PIDs.
 - **`magicserve stopall`**: Emergency command. Finds and destroys ALL active daemons, related Nginx configurations, certificates, processes, and purges all custom localhost entries system-wide, restoring your computer's clean state.

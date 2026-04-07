@@ -4,14 +4,16 @@
 
 # El directorio de trabajo actual (donde se ejecuta el comando)
 SCRIPT_DIR="$(pwd)"
-CONFIG_FILE="$SCRIPT_DIR/config.json"
-LOGS_DIR="$SCRIPT_DIR/logs"
+CONFIG_FILE="$SCRIPT_DIR/magicserve.json"
+MAGICSERVE_DIR="$SCRIPT_DIR/.magicserve"
+LOGS_DIR="$MAGICSERVE_DIR/logs"
+PIDS_DIR="$MAGICSERVE_DIR/pids"
 
-# Asegurar que el directorio de logs existe
-mkdir -p "$LOGS_DIR"
+# Asegurar que los directorios internos existen
+mkdir -p "$LOGS_DIR" "$PIDS_DIR"
 
 if [ "$1" != "stopall" ] && [ "$1" != "init" ] && [ ! -f "$CONFIG_FILE" ]; then
-    echo "❌ Error: config.json no encontrado en el directorio actual."
+    echo "❌ Error: magicserve.json no encontrado en el directorio actual."
     echo "💡 Truco: Ejecuta 'magicserve init' para generar un template base."
     exit 1
 fi
@@ -27,10 +29,10 @@ usage() {
     echo "Uso:"
     echo "  magicserve [start|stop|stopall|status|init]"
     echo ""
-    echo "  init     - Crea un archivo config.json de plantilla en la carpeta actual"
-    echo "  start    - Inicia todos los servicios del config.json"
-    echo "  stop     - Detiene los servicios del config.json"
-    echo "  stopall  - Busca y detiene TODOS los dominios (sin depender de config.json) y borra todo rastro"
+    echo "  init     - Crea un archivo magicserve.json de plantilla en la carpeta actual"
+    echo "  start    - Inicia todos los servicios del magicserve.json"
+    echo "  stop     - Detiene los servicios del magicserve.json"
+    echo "  stopall  - Busca y detiene TODOS los dominios (sin depender de magicserve.json) y borra todo rastro"
     echo "  status   - Muestra el estado de los servicios"
     exit 1
 }
@@ -41,7 +43,7 @@ start_server() {
     local TYPE=$3
     local PORT=$4
 
-    local PID_FILE="$SCRIPT_DIR/.${DOMAIN}.pid"
+    local PID_FILE="$PIDS_DIR/${DOMAIN}.pid"
 
     echo "🚀 Iniciando $DOMAIN ($TYPE) en puerto $PORT..."
 
@@ -139,7 +141,7 @@ EOF
 }
 
 start_all() {
-    echo "🌟 Iniciando todos los servicios desde config.json..."
+    echo "🌟 Iniciando todos los servicios desde magicserve.json..."
 
     local LENGTH=$(jq '. | length' "$CONFIG_FILE")
     for (( i=0; i<$LENGTH; i++ )); do
@@ -171,7 +173,7 @@ stop_all() {
     local LENGTH=$(jq '. | length' "$CONFIG_FILE")
     for (( i=0; i<$LENGTH; i++ )); do
         local DOMAIN=$(jq -r ".[$i].domain" "$CONFIG_FILE")
-        local PID_FILE="$SCRIPT_DIR/.${DOMAIN}.pid"
+        local PID_FILE="$PIDS_DIR/${DOMAIN}.pid"
 
         if [ -f "$PID_FILE" ]; then
             local PID=$(cat "$PID_FILE")
@@ -207,7 +209,7 @@ status() {
     local LENGTH=$(jq '. | length' "$CONFIG_FILE")
     for (( i=0; i<$LENGTH; i++ )); do
         local DOMAIN=$(jq -r ".[$i].domain" "$CONFIG_FILE")
-        local PID_FILE="$SCRIPT_DIR/.${DOMAIN}.pid"
+        local PID_FILE="$PIDS_DIR/${DOMAIN}.pid"
 
         if [ -f "$PID_FILE" ]; then
             local PID=$(cat "$PID_FILE")
@@ -233,13 +235,13 @@ stop_all_global() {
 
     # ─── 1. Limpiar archivos .pid locales ───
     echo "🔍 Buscando archivos .pid locales..."
-    for PID_FILE in "$SCRIPT_DIR"/.*.pid; do
-        [ -f "$PID_FILE" ] || continue
-        FOUND_SOMETHING=true
-        local PID=$(cat "$PID_FILE")
-        local BASENAME=$(basename "$PID_FILE")
-        local DOMAIN_NAME=${BASENAME#.}
-        DOMAIN_NAME=${DOMAIN_NAME%.pid}
+    if [ -d "$PIDS_DIR" ]; then
+        for PID_FILE in "$PIDS_DIR"/*.pid; do
+            [ -f "$PID_FILE" ] || continue
+            FOUND_SOMETHING=true
+            local PID=$(cat "$PID_FILE")
+            local BASENAME=$(basename "$PID_FILE")
+            local DOMAIN_NAME=${BASENAME%.pid}
 
         if ps -p $PID > /dev/null 2>&1; then
             kill $PID 2>/dev/null
@@ -247,8 +249,8 @@ stop_all_global() {
         else
             echo "  ⚠️  Proceso ya no existía: $DOMAIN_NAME (PID: $PID)"
         fi
-        rm -f "$PID_FILE"
-    done
+        done
+    fi
     if [ "$FOUND_SOMETHING" = false ]; then
         echo "  ✅ No se encontraron archivos .pid"
     fi
@@ -350,7 +352,7 @@ stop_all_global() {
 
 init_config() {
     if [ -f "$CONFIG_FILE" ]; then
-        echo "⚠️  El archivo config.json ya existe en este directorio."
+        echo "⚠️  El archivo magicserve.json ya existe en este directorio."
         exit 1
     fi
     cat <<EOF > "$CONFIG_FILE"
@@ -369,7 +371,7 @@ init_config() {
     }
 ]
 EOF
-    echo "✅ Archivo config.json base generado exitosamente."
+    echo "✅ Archivo magicserve.json base generado exitosamente."
 }
 
 case "$ACTION" in
