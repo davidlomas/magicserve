@@ -10,8 +10,9 @@ LOGS_DIR="$SCRIPT_DIR/logs"
 # Asegurar que el directorio de logs existe
 mkdir -p "$LOGS_DIR"
 
-if [ "$1" != "stopall" ] && [ ! -f "$CONFIG_FILE" ]; then
-    echo "❌ Error: config.json no encontrado."
+if [ "$1" != "stopall" ] && [ "$1" != "init" ] && [ ! -f "$CONFIG_FILE" ]; then
+    echo "❌ Error: config.json no encontrado en el directorio actual."
+    echo "💡 Truco: Ejecuta 'magicserve init' para generar un template base."
     exit 1
 fi
 
@@ -24,8 +25,9 @@ ACTION=$1
 
 usage() {
     echo "Uso:"
-    echo "  ./run.sh [start|stop|stopall|status]"
+    echo "  magicserve [start|stop|stopall|status|init]"
     echo ""
+    echo "  init     - Crea un archivo config.json de plantilla en la carpeta actual"
     echo "  start    - Inicia todos los servicios del config.json"
     echo "  stop     - Detiene los servicios del config.json"
     echo "  stopall  - Busca y detiene TODOS los dominios (sin depender de config.json) y borra todo rastro"
@@ -346,7 +348,34 @@ stop_all_global() {
     echo "🧹 ¡Todo limpio! No queda rastro."
 }
 
+init_config() {
+    if [ -f "$CONFIG_FILE" ]; then
+        echo "⚠️  El archivo config.json ya existe en este directorio."
+        exit 1
+    fi
+    cat <<EOF > "$CONFIG_FILE"
+[
+    {
+        "path": "../tu-proyecto-frontal",
+        "domain": "tu-proyecto.test",
+        "type": "node",
+        "port": 3000
+    },
+    {
+        "path": "../tu-api-backend",
+        "domain": "api.tu-proyecto.test",
+        "type": "php",
+        "port": 3001
+    }
+]
+EOF
+    echo "✅ Archivo config.json base generado exitosamente."
+}
+
 case "$ACTION" in
+    init)
+        init_config
+        ;;
     start)
         start_all
         ;;
