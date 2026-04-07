@@ -2,6 +2,9 @@
   "name": "magicserve",
   "version": "1.0.0",
   "description": "Script to run local environments via config.json",
+  "files": [
+    "run.sh"
+  ],
   "bin": {
     "magicserve": "./run.sh"
   },
