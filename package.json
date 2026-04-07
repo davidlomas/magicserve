@@ -1,0 +1,27 @@
+{
+  "name": "magic-run",
+  "version": "1.0.0",
+  "description": "Script to run local environments via config.json",
+  "bin": {
+    "magic-run": "./run.sh"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/magicompras/local.magicompras.com.git"
+  },
+  "keywords": [
+    "local",
+    "run",
+    "env",
+    "magicompras"
+  ],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/magicompras/local.magicompras.com/issues"
+  },
+  "homepage": "https://github.com/magicompras/local.magicompras.com#readme"
+}
