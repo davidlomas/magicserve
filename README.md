@@ -1,70 +1,72 @@
 # Magicserve 🪄
 
-Magicserve es una herramienta CLI para gestionar entornos de desarrollo web locales. Su objetivo es iniciar, detener y manejar el estado de múltiples servidores locales (`node` y `php`) al mismo tiempo, y automáticamente levantar un Reverse Proxy (Nginx) y generar certificados SSL vía `mkcert` para asignarle un dominio dinámico (ej. `tu-proyecto.test`).
+*[Leer en Español](README.es.md)*
 
-## Requisitos
+Magicserve is a CLI tool for managing local web development environments. Its goal is to start, stop, and manage the state of multiple local servers (`node` and `php`) simultaneously, automatically set up a Reverse Proxy (Nginx), and generate SSL certificates via `mkcert` to assign them a dynamic local domain (e.g. `your-project.test`).
 
-Antes de utilizar `magicserve`, es necesario tener instalado en la computadora de desarrollo:
-- [Node.js y npm](https://nodejs.org/)
+## Requirements
+
+Before using `magicserve`, you must have the following installed on your development machine:
+- [Node.js and npm](https://nodejs.org/)
 - [jq](https://jqlang.github.io/jq/) (`brew install jq`)
 - [mkcert](https://github.com/FiloSottile/mkcert) (`brew install mkcert`)
 - Nginx (`brew install nginx`)
-- PHP (si tu proyecto requiere servicios backend en php)
+- PHP (if your project requires a PHP backend service)
 
-## Instalación global
+## Global Installation
 
-Si tienes los requisitos instalados, puedes instalar la utilidad de manera global usando npm:
+If you have the requirements installed, you can globally install the utility using npm directly from GitHub:
 
 ```bash
 npm install -g davidlomas/magicserve
 ```
 
-> **Nota:** También puedes publicarlo en npm publico y usar `npm install -g magicserve` directamente.
+> **Note:** You can also publish it to the public npm registry and use `npm install -g magicserve`.
 
-## ¿Cómo se usa?
+## How to Use
 
-Una vez instalado de manera global, dirígete a cualquier carpeta en tu computadora que servirá como "nodo central" o "espacio de trabajo" de tus proyectos, y ejecuta:
+Once installed globally, navigate to any folder on your computer that will serve as a "central hub" or "workspace" for your projects, and run:
 
 ```bash
 magicserve init
 ```
 
-Este comando creará automáticamente un archivo base llamado **`config.json`** en el directorio actual. 
+This command will automatically create a base **`config.json`** file in the current directory. 
 
-### Archivo de configuración: `config.json`
+### Configuration File: `config.json`
 
-Tu directorio central gestiona y levanta las aplicaciones referenciadas dentro del **`config.json`**. Su estructura es así de sencilla:
+Your central directory manages and starts the applications referenced within the **`config.json`**. Its structure is this simple:
 
 ```json
 [
     {
-        "path": "../tu-proyecto-frontal",
-        "domain": "tu-proyecto.test",
+        "path": "../your-frontend-project",
+        "domain": "your-project.test",
         "type": "node",
         "port": 3000
     },
     {
-        "path": "../tu-api-backend",
-        "domain": "api.tu-proyecto.test",
+        "path": "../your-backend-api",
+        "domain": "api.your-project.test",
         "type": "php",
         "port": 3001
     }
 ]
 ```
 
-**Propiedades:**
-- **`path`**: Ruta relativa o absoluta hacia el directorio del proyecto donde se deberá correr el servidor.
-- **`domain`**: El dominio de desarrollo local que se enlazará automáticamente (eg. `*.test`).
-- **`type`**: `node` (Correrá usando `npm run dev`) o `php` (Correrá el built-in server usando `php -S`).
-- **`port`**: El puerto interno que el servicio ocupará.
+**Properties:**
+- **`path`**: Relative or absolute path to the project's directory where the server should run.
+- **`domain`**: The local development domain that will be automatically mapped (e.g. `*.test`).
+- **`type`**: `node` (Runs using `npm run dev`) or `php` (Runs the PHP built-in server using `php -S`).
+- **`port`**: The internal port the service will use.
 
-Una vez configurado o modificado a tu gusto, utiliza los comandos de control.
+Once configured or modified to your liking, you can use the control commands.
 
-## Comandos disponibles
+## Available Commands
 
-Dentro del directorio donde está tu `config.json`, dispones de los siguientes comandos mágicos:
+Within the directory where your `config.json` is located, you have the following magic commands available:
 
-- **`magicserve start`**: Inicia todos los servicios del `config.json` en los puertos definidos, genera certificados SSL dinámicos de ser necesario y configura Nginx.
-- **`magicserve stop`**: Detiene ordenadamente los servicios activos mencionados de tu `config.json`.
-- **`magicserve status`**: Te muestra en terminal cuáles de tus proyectos están activos actualmente y cuál es su PID.
-- **`magicserve stopall`**: Comando de emergencia. Busca y destruye TODOS los demonios, configuraciones temporales nginx relacionadas, certificados, puertos y purga todas las entradas de localhost customizadas en todo el sistema, restaurando tu computadora.
+- **`magicserve start`**: Starts all services declared in `config.json` on the defined ports, generates dynamic SSL certificates if necessary, and configures Nginx.
+- **`magicserve stop`**: Orderly stops the active services mentioned in your `config.json`.
+- **`magicserve status`**: Shows a terminal output of which projects are currently active and their PIDs.
+- **`magicserve stopall`**: Emergency command. Finds and destroys ALL active daemons, related Nginx configurations, certificates, processes, and purges all custom localhost entries system-wide, restoring your computer's clean state.
