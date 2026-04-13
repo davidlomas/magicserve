@@ -5,12 +5,20 @@
 # El directorio de trabajo actual (donde se ejecuta el comando)
 SCRIPT_DIR="$(pwd)"
 CONFIG_FILE="$SCRIPT_DIR/magicserve.json"
+
+# El directorio donde reside el script (para leer package.json)
+REAL_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VERSION=$(jq -r '.version' "$REAL_SCRIPT_DIR/package.json" 2>/dev/null || echo "1.1.0")
+
 MAGICSERVE_DIR="$SCRIPT_DIR/.magicserve"
 LOGS_DIR="$MAGICSERVE_DIR/logs"
 PIDS_DIR="$MAGICSERVE_DIR/pids"
 
 # Asegurar que los directorios internos existen
 mkdir -p "$LOGS_DIR" "$PIDS_DIR"
+
+echo "🪄 Magicserve v$VERSION"
+echo ""
 
 if [ "$1" != "stopall" ] && [ "$1" != "init" ] && [ ! -f "$CONFIG_FILE" ]; then
     echo "❌ Error: magicserve.json no encontrado en el directorio actual."
@@ -60,7 +68,7 @@ start_server() {
         echo "✅ Node corriendo (PID: $PID)"
     elif [ "$TYPE" == "php" ]; then
         # El docroot por defecto para php es el directorio actual
-        nohup php -S "localhost:$PORT" -t . > "$LOGS_DIR/${DOMAIN}.log" 2>&1 &
+        nohup php -d upload_max_filesize=100M -d post_max_size=100M -S "localhost:$PORT" -t . > "$LOGS_DIR/${DOMAIN}.log" 2>&1 &
         local PID=$!
         echo $PID > "$PID_FILE"
         echo "✅ PHP corriendo (PID: $PID)"
@@ -117,6 +125,8 @@ server {
 
     ssl_certificate     $CERT;
     ssl_certificate_key $KEY;
+
+    client_max_body_size 100M;
 
     location / {
         proxy_pass http://localhost:$PORT;

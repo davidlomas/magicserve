@@ -70,3 +70,11 @@ Dentro del directorio donde está tu `magicserve.json`, dispones de los siguient
 - **`magicserve stop`**: Detiene ordenadamente los servicios activos mencionados de tu `magicserve.json`.
 - **`magicserve status`**: Te muestra en terminal cuáles de tus proyectos están activos actualmente y cuál es su PID.
 - **`magicserve stopall`**: Comando de emergencia. Busca y destruye TODOS los demonios, configuraciones temporales nginx relacionadas, certificados, puertos y purga todas las entradas de localhost customizadas en todo el sistema, restaurando tu computadora.
+
+---
+
+### Novedades en v1.1.0 🚀
+
+- **Visualización de Versión**: Ahora puedes ver la versión de Magicserve directamente en la terminal al ejecutar cualquier comando.
+- **Soporte para Archivos Grandes**: Nginx y PHP se configuran automáticamente para soportar payloads de hasta **100MB** (uploads y JSON), solucionando el error "413 Request Entity Too Large".
+- **SSL Automático**: Soporte nativo para HTTPS vía `mkcert`.
