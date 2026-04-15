@@ -15,23 +15,21 @@ Before using `magicserve`, you must have the following installed on your develop
 
 ## Global Installation
 
-If you have the requirements installed, you can globally install the utility using npm directly from GitHub:
+If you have the requirements installed, you can globally install the utility from npm:
 
 ```bash
-npm install -g davidlomas/magicserve
+npm install -g magicserve
 ```
-
-> **Note:** You can also publish it to the public npm registry and use `npm install -g magicserve`.
 
 ## Updating
 
-If you already have `magicserve` installed and want to update to the latest version, simply run the same install command again:
+If you already have `magicserve` installed and want to update to the latest version, simply run:
 
 ```bash
-npm install -g davidlomas/magicserve
+npm update -g magicserve
 ```
 
-This will overwrite the previous version with the latest one directly from GitHub. Your `magicserve.json` files in your projects **will not be affected**.
+Your `magicserve.json` files in your projects **will not be affected**.
 
 > 💡 You can verify the installed version by running any `magicserve` command — it will be displayed at the top.
 
