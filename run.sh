@@ -150,6 +150,32 @@ server {
 EOF
 }
 
+start_tunnel() {
+    local DOMAIN=$1
+    local PORT=$2
+    local TUNNEL_SUBDOMAIN=$3
+
+    echo "🚇 Iniciando túnel para $DOMAIN en puerto $PORT..."
+    local TUNNEL_PID_FILE="$PIDS_DIR/${DOMAIN}_tunnel.pid"
+
+    # Si pasaron false o null, no hacer nada
+    if [ "$TUNNEL_SUBDOMAIN" == "false" ] || [ "$TUNNEL_SUBDOMAIN" == "null" ] || [ -z "$TUNNEL_SUBDOMAIN" ]; then
+        return
+    fi
+
+    local TUNNEL_LOG="$LOGS_DIR/${DOMAIN}_tunnel.log"
+
+    if [ "$TUNNEL_SUBDOMAIN" == "true" ]; then
+        nohup npx localtunnel --port $PORT > "$TUNNEL_LOG" 2>&1 &
+    else
+        nohup npx localtunnel --port $PORT --subdomain "$TUNNEL_SUBDOMAIN" > "$TUNNEL_LOG" 2>&1 &
+    fi
+
+    local PID=$!
+    echo $PID > "$TUNNEL_PID_FILE"
+    echo "✅ Túnel corriendo (PID: $PID)"
+}
+
 start_all() {
     echo "🌟 Iniciando todos los servicios desde magicserve.json..."
 
@@ -159,9 +185,14 @@ start_all() {
         local DOMAIN=$(jq -r ".[$i].domain" "$CONFIG_FILE")
         local TYPE=$(jq -r ".[$i].type" "$CONFIG_FILE")
         local PORT=$(jq -r ".[$i].port" "$CONFIG_FILE")
+        local TUNNEL=$(jq -r ".[$i].tunnel // empty" "$CONFIG_FILE")
 
         start_server "$PATH_DIR" "$DOMAIN" "$TYPE" "$PORT"
         start_proxy "$DOMAIN" "$PORT"
+
+        if [ -n "$TUNNEL" ]; then
+            start_tunnel "$DOMAIN" "$PORT" "$TUNNEL"
+        fi
     done
 
     echo "🔄 Recargando Nginx..."
@@ -194,6 +225,18 @@ stop_all() {
                 echo "⚠️ Proceso para $DOMAIN no encontrado (el archivo PID será limpiado)."
             fi
             rm "$PID_FILE"
+        fi
+
+        local TUNNEL_PID_FILE="$PIDS_DIR/${DOMAIN}_tunnel.pid"
+        if [ -f "$TUNNEL_PID_FILE" ]; then
+            local TPID=$(cat "$TUNNEL_PID_FILE")
+            if ps -p $TPID > /dev/null; then
+                kill $TPID
+                echo "🛑 Túnel para $DOMAIN detenido (PID: $TPID)."
+            else
+                echo "⚠️ Proceso de túnel para $DOMAIN no encontrado."
+            fi
+            rm "$TUNNEL_PID_FILE"
         fi
 
         # Limpiar de /etc/hosts
@@ -230,6 +273,16 @@ status() {
             fi
         else
             echo "⚪️ $DOMAIN: Detenido"
+        fi
+
+        local TUNNEL_PID_FILE="$PIDS_DIR/${DOMAIN}_tunnel.pid"
+        if [ -f "$TUNNEL_PID_FILE" ]; then
+            local TPID=$(cat "$TUNNEL_PID_FILE")
+            if ps -p $TPID > /dev/null; then
+                 echo "  ↳ 🚇 Túnel expuesto (PID: $TPID)"
+            else
+                 echo "  ↳ 🔴 Túnel: Archivo PID existe pero no está corriendo"
+            fi
         fi
     done
 }
@@ -291,6 +344,19 @@ stop_all_global() {
         done
     else
         echo "  ✅ No se encontraron servidores Node de desarrollo"
+    fi
+
+    # ─── 3.5. Matar procesos de localtunnel ───
+    echo ""
+    echo "🔍 Buscando procesos de localtunnel..."
+    local LT_PIDS=$(pgrep -f "localtunnel" 2>/dev/null)
+    if [ -n "$LT_PIDS" ]; then
+        echo "$LT_PIDS" | while read PID; do
+            kill $PID 2>/dev/null
+            echo "  🛑 localtunnel detenido (PID: $PID)"
+        done
+    else
+        echo "  ✅ No se encontraron procesos de localtunnel"
     fi
 
     # ─── 4. Eliminar TODAS las configuraciones de nginx en servers/ ───
@@ -377,7 +443,8 @@ init_config() {
         "path": "../tu-api-backend",
         "domain": "api.tu-proyecto.test",
         "type": "php",
-        "port": 3001
+        "port": 3001,
+        "tunnel": "mi-super-api-dev"
     }
 ]
 EOF

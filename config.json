@@ -9,7 +9,8 @@
         "path": "../api.magicompras.com",
         "domain": "api.magicompras.com.test",
         "type": "php",
-        "port": 3001
+        "port": 3001,
+        "tunnel": "magicompras-api"
     },
     {
         "path": "../api.multiventas.mx/public",
