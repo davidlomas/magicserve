@@ -3,7 +3,8 @@
   "version": "1.2.2",
   "description": "Script to run local environments via magicserve.json",
   "files": [
-    "run.sh"
+    "run.sh",
+    "package.json"
   ],
   "bin": {
     "magicserve": "run.sh"
