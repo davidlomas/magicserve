@@ -23,6 +23,18 @@ npm install -g davidlomas/magicserve
 
 > **Nota:** También puedes publicarlo en npm publico y usar `npm install -g magicserve` directamente.
 
+## Actualización
+
+Si ya tienes `magicserve` instalado y quieres actualizarlo a la última versión, ejecuta el mismo comando de instalación:
+
+```bash
+npm install -g davidlomas/magicserve
+```
+
+Esto sobreescribirá la versión anterior con la más reciente directamente desde GitHub. Tus archivos `magicserve.json` en tus proyectos **no se verán afectados**.
+
+> 💡 Puedes verificar la versión instalada ejecutando cualquier comando de `magicserve`, aparecerá al inicio.
+
 ## ¿Cómo se usa?
 
 Una vez instalado de manera global, dirígete a cualquier carpeta en tu computadora que servirá como "nodo central" o "espacio de trabajo" de tus proyectos, y ejecuta:
