@@ -6,8 +6,12 @@
 SCRIPT_DIR="$(pwd)"
 CONFIG_FILE="$SCRIPT_DIR/magicserve.json"
 
-# El directorio donde reside el script (para leer package.json)
-REAL_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# El directorio donde reside el script (resolviendo symlinks para instalación global via npm)
+_SCRIPT_SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$_SCRIPT_SOURCE" ]; do
+    _SCRIPT_SOURCE="$(readlink "$_SCRIPT_SOURCE")"
+done
+REAL_SCRIPT_DIR="$(cd "$(dirname "$_SCRIPT_SOURCE")" && pwd)"
 VERSION=$(jq -r '.version' "$REAL_SCRIPT_DIR/package.json" 2>/dev/null || echo "1.1.0")
 
 MAGICSERVE_DIR="$SCRIPT_DIR/.magicserve"
