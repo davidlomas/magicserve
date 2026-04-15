@@ -164,6 +164,7 @@ start_tunnel() {
 
     echo "🚇 Iniciando túnel para $DOMAIN en puerto $PORT..."
     local TUNNEL_PID_FILE="$PIDS_DIR/${DOMAIN}_tunnel.pid"
+    local TUNNEL_URL_FILE="$PIDS_DIR/${DOMAIN}_tunnel.url"
 
     # Si pasaron false o null, no hacer nada
     if [ "$TUNNEL_SUBDOMAIN" == "false" ] || [ "$TUNNEL_SUBDOMAIN" == "null" ] || [ -z "$TUNNEL_SUBDOMAIN" ]; then
@@ -174,13 +175,28 @@ start_tunnel() {
 
     if [ "$TUNNEL_SUBDOMAIN" == "true" ]; then
         nohup npx localtunnel --port $PORT > "$TUNNEL_LOG" 2>&1 &
+        local PID=$!
+        echo $PID > "$TUNNEL_PID_FILE"
+        echo "✅ Túnel corriendo (PID: $PID)"
+        # Esperar a que localtunnel imprima la URL dinámica
+        echo "⏳ Esperando URL del túnel..."
+        sleep 4
+        local URL=$(grep -o 'https://[^ ]*' "$TUNNEL_LOG" 2>/dev/null | head -1)
+        if [ -n "$URL" ]; then
+            echo "$URL" > "$TUNNEL_URL_FILE"
+            echo "🌐 URL pública del túnel: $URL"
+        else
+            echo "⚠️  No se pudo obtener la URL del túnel aún. Revisa: $TUNNEL_LOG"
+        fi
     else
         nohup npx localtunnel --port $PORT --subdomain "$TUNNEL_SUBDOMAIN" > "$TUNNEL_LOG" 2>&1 &
+        local PID=$!
+        echo $PID > "$TUNNEL_PID_FILE"
+        local URL="https://${TUNNEL_SUBDOMAIN}.loca.lt"
+        echo "$URL" > "$TUNNEL_URL_FILE"
+        echo "✅ Túnel corriendo (PID: $PID)"
+        echo "🌐 URL pública del túnel: $URL"
     fi
-
-    local PID=$!
-    echo $PID > "$TUNNEL_PID_FILE"
-    echo "✅ Túnel corriendo (PID: $PID)"
 }
 
 start_all() {
@@ -235,6 +251,7 @@ stop_all() {
         fi
 
         local TUNNEL_PID_FILE="$PIDS_DIR/${DOMAIN}_tunnel.pid"
+        local TUNNEL_URL_FILE="$PIDS_DIR/${DOMAIN}_tunnel.url"
         if [ -f "$TUNNEL_PID_FILE" ]; then
             local TPID=$(cat "$TUNNEL_PID_FILE")
             if ps -p $TPID > /dev/null; then
@@ -244,6 +261,7 @@ stop_all() {
                 echo "⚠️ Proceso de túnel para $DOMAIN no encontrado."
             fi
             rm "$TUNNEL_PID_FILE"
+            rm -f "$TUNNEL_URL_FILE"
         fi
 
         # Limpiar de /etc/hosts
@@ -283,10 +301,17 @@ status() {
         fi
 
         local TUNNEL_PID_FILE="$PIDS_DIR/${DOMAIN}_tunnel.pid"
+        local TUNNEL_URL_FILE="$PIDS_DIR/${DOMAIN}_tunnel.url"
         if [ -f "$TUNNEL_PID_FILE" ]; then
             local TPID=$(cat "$TUNNEL_PID_FILE")
             if ps -p $TPID > /dev/null; then
-                 echo "  ↳ 🚇 Túnel expuesto (PID: $TPID)"
+                local TURL=""
+                [ -f "$TUNNEL_URL_FILE" ] && TURL=$(cat "$TUNNEL_URL_FILE")
+                if [ -n "$TURL" ]; then
+                    echo "  ↳ 🚇 Túnel activo (PID: $TPID) → 🌐 $TURL"
+                else
+                    echo "  ↳ 🚇 Túnel activo (PID: $TPID)"
+                fi
             else
                  echo "  ↳ 🔴 Túnel: Archivo PID existe pero no está corriendo"
             fi
