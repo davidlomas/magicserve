@@ -49,7 +49,8 @@ Tu directorio central gestiona y levanta las aplicaciones referenciadas dentro d
         "path": "../tu-api-backend",
         "domain": "api.tu-proyecto.test",
         "type": "php",
-        "port": 3001
+        "port": 3001,
+        "tunnel": "mi-super-api-dev"
     }
 ]
 ```
@@ -59,10 +60,36 @@ Tu directorio central gestiona y levanta las aplicaciones referenciadas dentro d
 - **`domain`**: El dominio de desarrollo local que se enlazará automáticamente (eg. `*.test`).
 - **`type`**: `node` (Correrá usando `npm run dev`) o `php` (Correrá el built-in server usando `php -S`).
 - **`port`**: El puerto interno que el servicio ocupará.
+- **`tunnel`**: *(Opcional)* Subdominio para enlazar puerto interno y exponerlo a internet público a través de `localtunnel` (Ej. webhooks de Mercado Libre o pruebas móviles).
 
 Una vez configurado o modificado a tu gusto, utiliza los comandos de control.
 
 ## Comandos disponibles
+
+## Arquitectura: ¿Cómo funciona bajo la manga?
+
+Magicserve orquesta en segundos varias herramientas subyacentes para que tú solo te preocupes por el código de tu proyecto.
+
+```mermaid
+flowchart TD
+    Dev([👨‍💻 Desarrollador])
+    World([🌐 Webhooks Externos])
+    
+    subgraph Tu Computadora Local
+        Nginx(Nginx Proxy Inverso SSL)
+        LT(LocalTunnel Túnel Reverso)
+        Node((Servidor Node\nEj. 3000))
+        PHP((Servidor PHP\nEj. 3001))
+    end
+
+    Dev -- "https://tu-proyecto.test" --> Nginx
+    World -- "https://mi-api.loca.lt" --> LT
+    
+    Nginx -- "localhost:3000" --> Node
+    Nginx -- "localhost:3001" --> PHP
+    LT -- "Túnel" --> PHP
+```
+
 
 Dentro del directorio donde está tu `magicserve.json`, dispones de los siguientes comandos mágicos:
 
@@ -72,6 +99,10 @@ Dentro del directorio donde está tu `magicserve.json`, dispones de los siguient
 - **`magicserve stopall`**: Comando de emergencia. Busca y destruye TODOS los demonios, configuraciones temporales nginx relacionadas, certificados, puertos y purga todas las entradas de localhost customizadas en todo el sistema, restaurando tu computadora.
 
 ---
+
+### Novedades en v1.2.0 🚇
+
+- **Localtunnel Integrado**: Expón de forma permanente y automática puertos de tu API al internet vía la nueva propiedad `tunnel` en el config json para recibir **Webhooks** de terceros (Mercado Libre, Stripe, etc).
 
 ### Novedades en v1.1.0 🚀
 
