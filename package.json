@@ -1,14 +1,18 @@
 {
   "name": "magicserve",
   "version": "2.0.2",
-  "description": "CLI to wire local HTTPS domains, SSL and tunnels to ports you run yourself",
+  "description": "Zero-config local HTTPS for any dev server. Maps pretty *.test domains to your ports with trusted SSL (mkcert), Nginx reverse proxy, and optional public tunnels — works with Node, PHP, Python, Go, anything.",
   "files": [
     "run.sh",
-    "package.json"
+    "package.json",
+    "README.md",
+    "README.es.md",
+    "LICENSE"
   ],
   "bin": {
     "magicserve": "run.sh"
   },
+  "preferGlobal": true,
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "release": "npm version patch && npm publish --access public"
@@ -18,13 +22,38 @@
     "url": "git+https://github.com/davidlomas/magicserve.git"
   },
   "keywords": [
-    "local",
-    "run",
-    "env",
-    "magicompras"
+    "https",
+    "ssl",
+    "mkcert",
+    "nginx",
+    "reverse-proxy",
+    "proxy",
+    "localhost",
+    "local-development",
+    "dev-server",
+    "dev-environment",
+    "test-domain",
+    "custom-domain",
+    "localtunnel",
+    "tunnel",
+    "ngrok-alternative",
+    "webhook",
+    "webhooks",
+    "https-localhost",
+    "ssl-localhost",
+    "cli",
+    "devtools",
+    "macos",
+    "homebrew"
   ],
-  "author": "",
-  "license": "ISC",
+  "author": "David Lomas <davidlomas@officevid.com>",
+  "license": "MIT",
+  "os": [
+    "darwin"
+  ],
+  "engines": {
+    "node": ">=14"
+  },
   "bugs": {
     "url": "https://github.com/davidlomas/magicserve/issues"
   },

@@ -1,86 +1,142 @@
 # Magicserve 🪄
 
-*[Read in English](README.md)*
+> **URLs bonitas `https://tu-proyecto.test` para cualquier servidor local — en un solo comando.**
 
-Magicserve es una herramienta CLI para gestionar entornos de desarrollo web locales. Levanta automáticamente un Reverse Proxy (Nginx) con HTTPS para múltiples servicios locales a la vez, genera certificados SSL vía `mkcert` y le asigna a cada uno un dominio dinámico (ej. `tu-proyecto.test`), además de URLs públicas opcionales vía `localtunnel`.
+[![npm version](https://img.shields.io/npm/v/magicserve.svg?color=cb3837&logo=npm)](https://www.npmjs.com/package/magicserve)
+[![npm downloads](https://img.shields.io/npm/dm/magicserve.svg?color=cb3837&logo=npm)](https://www.npmjs.com/package/magicserve)
+[![license](https://img.shields.io/npm/l/magicserve.svg?color=blue)](./LICENSE)
+[![platform](https://img.shields.io/badge/platform-macOS%20(Apple%20Silicon)-black?logo=apple)](#requisitos)
 
-> **Tú levantas tus propios servidores.** Magicserve **no** inicia ni detiene tus apps. Tú levantas lo que quieras (Node, PHP, Python, Go, …) en los puertos que listes en `magicserve.json`, y Magicserve enlaza el dominio HTTPS, el certificado y el túnel a ese puerto.
+*[Read in English 🇬🇧](README.md)*
+
+Magicserve convierte `localhost:3000` en un dominio real, confiable y con **HTTPS** como `https://tu-proyecto.test` — y opcionalmente una **URL pública** para webhooks — sin que toques ni una sola config de Nginx, certificado o línea de `/etc/hosts`.
+
+Tú sigues levantando tus propios servidores (Node, PHP, Python, Go, Rust… lo que sea). Magicserve cablea la infraestructura alrededor de ellos.
+
+```bash
+npm install -g magicserve
+magicserve init      # crea magicserve.json
+magicserve start     # 🎉 https://tu-proyecto.test ya corre con SSL válido
+```
+
+---
+
+## ¿Por qué Magicserve?
+
+Configurar HTTPS local "a mano" significa pelearte con `mkcert`, escribir bloques `server` de Nginx, editar `/etc/hosts` como root y levantar un túnel por cada webhook que pruebas. Magicserve hace todo eso desde un pequeño archivo JSON:
+
+| Sin Magicserve | Con Magicserve |
+| --- | --- |
+| `http://localhost:3001` 😪 | `https://api.tu-proyecto.test` 🔒 |
+| Advertencias de SSL en el navegador | Certificado confiable vía `mkcert` |
+| Editar Nginx + `/etc/hosts` a mano | Un solo `magicserve.json` |
+| Un comando `ngrok`/`localtunnel` por servicio | `"tunnel": "mi-api"` en la config |
+| Configuración distinta por stack | El mismo flujo para **cualquier** lenguaje |
+
+- 🔒 **HTTPS local confiable** — certificados SSL reales vía `mkcert`, sin advertencias del navegador ni `--insecure`.
+- 🌐 **Dominios `.test` bonitos** — `https://tu-proyecto.test` en lugar de `localhost:3000`; hasta las cookies y CORS se portan bien.
+- 🚇 **Túneles públicos en una línea** — expón un puerto a internet para webhooks de Stripe / Mercado Libre / WhatsApp o pruebas en el móvil.
+- 🧩 **Agnóstico al stack** — Magicserve nunca inicia tus servidores, así que funciona con Node, PHP, Python, Go, Bun, Deno… lo que corras.
+- ⚡ **Multi-servicio** — haz proxy de toda tu constelación de microservicios (`app.test`, `api.test`, `admin.test`) a la vez.
+- 🧹 **Limpieza en un comando** — `stop` limpia solo tu proyecto; `stopall` resetea toda la máquina.
 
 ## Requisitos
 
-Antes de utilizar `magicserve`, es necesario tener instalado en la computadora de desarrollo:
-- [Node.js y npm](https://nodejs.org/)
-- [jq](https://jqlang.github.io/jq/) (`brew install jq`)
-- [mkcert](https://github.com/FiloSottile/mkcert) (`brew install mkcert`)
-- Nginx (`brew install nginx`)
-- PHP (si tu proyecto requiere servicios backend en php)
+macOS en Apple Silicon, con [Homebrew](https://brew.sh). Luego instala las dependencias:
 
-## Instalación global
+```bash
+brew install jq mkcert nginx
+mkcert -install   # una sola vez: confía en la autoridad certificadora local
+```
 
-Si tienes los requisitos instalados, puedes instalar la utilidad de manera global desde npm:
+| Herramienta | Para qué se necesita |
+| --- | --- |
+| [Node.js y npm](https://nodejs.org/) | Para instalar y ejecutar Magicserve |
+| [jq](https://jqlang.github.io/jq/) | Parsea tu `magicserve.json` |
+| [mkcert](https://github.com/FiloSottile/mkcert) | Genera certificados SSL locales confiables |
+| [Nginx](https://nginx.org/) | El proxy inverso con HTTPS |
+
+## Instalación
 
 ```bash
 npm install -g magicserve
 ```
 
-## Actualización
-
-Si ya tienes `magicserve` instalado y quieres actualizarlo a la última versión, ejecuta:
+**Actualiza** a la última versión cuando quieras — tus archivos `magicserve.json` nunca se tocan:
 
 ```bash
 npm update -g magicserve
 ```
 
-Tus archivos `magicserve.json` en tus proyectos **no se verán afectados**.
+> 💡 Cada comando imprime la versión instalada al inicio, así siempre sabes qué estás ejecutando.
 
-> 💡 Puedes verificar la versión instalada ejecutando cualquier comando de `magicserve`, aparecerá al inicio.
+## Inicio rápido
 
-## ¿Cómo se usa?
+1. Ve a cualquier carpeta que quieras usar como nodo central y crea la config:
 
-Una vez instalado de manera global, dirígete a cualquier carpeta en tu computadora que servirá como "nodo central" o "espacio de trabajo" de tus proyectos, y ejecuta:
+   ```bash
+   magicserve init
+   ```
 
-```bash
-magicserve init
-```
+2. Edita el **`magicserve.json`** generado para mapear dominios a los puertos que vas a levantar:
 
-Este comando creará automáticamente un archivo base llamado **`magicserve.json`** en el directorio actual. 
+   ```json
+   [
+       {
+           "domain": "tu-proyecto.test",
+           "port": 3000
+       },
+       {
+           "domain": "api.tu-proyecto.test",
+           "port": 3001,
+           "tunnel": "mi-super-api-dev"
+       }
+   ]
+   ```
 
-### Archivo de configuración: `magicserve.json`
+3. Levanta tus propios servidores en esos puertos (ej. `npm run dev`, `php artisan serve --port=3001`, …).
 
-Tu directorio central mapea dominios a los puertos locales de las apps que tú mismo levantas. Su estructura es así de sencilla:
+4. Cablea los dominios HTTPS, certificados y túneles:
 
-```json
-[
-    {
-        "domain": "tu-proyecto.test",
-        "port": 3000
-    },
-    {
-        "domain": "api.tu-proyecto.test",
-        "port": 3001,
-        "tunnel": "mi-super-api-dev"
-    }
-]
-```
+   ```bash
+   magicserve start
+   ```
 
-**Propiedades:**
-- **`domain`**: El dominio de desarrollo local que se enlazará automáticamente (eg. `*.test`).
-- **`port`**: El puerto local donde está escuchando **tu** servidor. Magicserve hace proxy del dominio a `localhost:<port>`; tú eres responsable de levantar ese servidor.
-- **`tunnel`**: *(Opcional)* Subdominio para exponer tu puerto a internet público a través de `localtunnel` (Ej. webhooks de Mercado Libre o pruebas móviles). Usa `true` para un subdominio aleatorio.
+   Ahora abre **`https://tu-proyecto.test`** en tu navegador. 🔒
 
-Una vez configurado a tu gusto, levanta tus propios servidores en esos puertos y utiliza los comandos de control.
+> `start`, `stop` y `stopall` editan `/etc/hosts` y recargan Nginx, por lo que piden tu contraseña de `sudo`.
 
-## Comandos disponibles
+### Configuración: `magicserve.json`
 
-## Arquitectura: ¿Cómo funciona bajo la manga?
+Un array JSON que mapea dominios a puertos locales. Esa es toda la API:
 
-Magicserve orquesta en segundos varias herramientas subyacentes para que tú solo te preocupes por el código de tu proyecto.
+| Propiedad | Obligatoria | Descripción |
+| --- | --- | --- |
+| `domain` | ✅ | El dominio de desarrollo local a mapear (ej. `tu-proyecto.test`). |
+| `port` | ✅ | El puerto donde escucha **tu** servidor. Magicserve hace proxy del dominio a `localhost:<port>`. |
+| `tunnel` | ⬜ | Expón el puerto públicamente vía `localtunnel`. Usa un string para un subdominio fijo (`https://<string>.loca.lt`) o `true` para uno aleatorio. Ideal para webhooks de terceros. |
+
+## Comandos
+
+Ejecútalos desde el directorio que contiene tu `magicserve.json`:
+
+| Comando | Qué hace |
+| --- | --- |
+| `magicserve init` | Crea un `magicserve.json` inicial en el directorio actual. |
+| `magicserve start` | Para cada dominio: genera el certificado SSL (si hace falta), agrega la entrada en `/etc/hosts`, escribe el proxy HTTPS de Nginx hacia `localhost:<port>` y abre los túneles configurados. |
+| `magicserve stop` | Quita los proxys de Nginx, las entradas de `/etc/hosts` y los túneles de **este** `magicserve.json`. Tus servidores siguen corriendo. |
+| `magicserve status` | Muestra si hay algo escuchando en el puerto de cada dominio, más el estado y la URL pública de cada túnel. |
+| `magicserve stopall` | 🧨 Reset de emergencia: destruye **todas** las configs de proxy de Nginx, túneles, certificados SSL y entradas custom de `localhost` en todo el sistema. |
+
+## ¿Cómo funciona bajo la manga?
+
+Magicserve orquesta en segundos varias herramientas subyacentes para que tú solo te preocupes por tu código.
 
 ```mermaid
 flowchart TD
     Dev([👨‍💻 Desarrollador])
     World([🌐 Webhooks Externos])
-    
+
     subgraph Tu Computadora Local
         Nginx(Nginx Proxy Inverso SSL)
         LT(LocalTunnel Túnel Reverso)
@@ -90,39 +146,57 @@ flowchart TD
 
     Dev -- "https://tu-proyecto.test" --> Nginx
     World -- "https://mi-api.loca.lt" --> LT
-    
+
     Nginx -- "localhost:3000" --> Node
     Nginx -- "localhost:3001" --> PHP
     LT -- "Túnel" --> PHP
 ```
 
-> Magicserve gestiona las partes de infraestructura (proxy Nginx, SSL, hosts, túnel). Los servidores detrás de los puertos los inicias y detienes tú.
+> Magicserve gestiona la infraestructura (proxy Nginx, SSL, hosts, túnel). Los servidores detrás de los puertos los inicias y detienes **tú**.
 
-Dentro del directorio donde está tu `magicserve.json`, dispones de los siguientes comandos mágicos:
+## Preguntas frecuentes
 
-- **`magicserve start`**: Para cada dominio genera el certificado SSL si hace falta, agrega la entrada en `/etc/hosts`, escribe el proxy HTTPS de Nginx hacia `localhost:<port>` y abre los túneles configurados. (Levanta tus servidores antes o después — Magicserve no los inicia.)
-- **`magicserve stop`**: Quita los proxys de Nginx y las entradas de `/etc/hosts` y cierra los túneles de los dominios de tu `magicserve.json`. Tus servidores siguen corriendo.
-- **`magicserve status`**: Te muestra si hay un servidor escuchando en el puerto de cada dominio, más el estado y la URL pública de los túneles.
-- **`magicserve stopall`**: Comando de emergencia. Destruye TODAS las configuraciones de proxy de Nginx, túneles, certificados SSL y entradas custom de `localhost` en todo el sistema, restaurando tu computadora. (Ya no mata tus servidores de apps — esos los gestionas tú.)
+**¿Magicserve inicia mi servidor de app?**
+No — y es intencional. Tú corres el stack que quieras en los puertos; Magicserve solo cablea el dominio HTTPS, el certificado y el túnel hacia ellos.
 
----
+**¿Por qué dominios `.test`?**
+`.test` es un TLD reservado (RFC 6761) que nunca resolverá en internet público, así que es la opción segura y sin conflictos para desarrollo local.
 
-### Novedades en v2.0.0 🔌 (Breaking)
+**¿Es un reemplazo de `ngrok`?**
+Para la parte de URL pública, sí — la propiedad opcional `tunnel` te da una URL pública HTTPS vía `localtunnel`, ideal para recibir webhooks (Stripe, Mercado Libre, WhatsApp…) o probar en un teléfono.
 
-- **Tú levantas tus propios servidores.** Magicserve ya no inicia procesos `node`/`php` — solo configura el proxy HTTPS de Nginx, el certificado SSL, la entrada en `/etc/hosts` y el túnel opcional apuntando al puerto que tú levantas (funciona con **cualquier** stack: Node, PHP, Python, Go, …).
+**¿Funciona en Linux / Windows / Macs Intel?**
+Aún no. Magicserve asume macOS en Apple Silicon con rutas de Homebrew. Las contribuciones para ampliar el soporte son muy bienvenidas.
+
+**Me sale una advertencia de SSL.**
+Ejecuta `mkcert -install` una vez para confiar en la autoridad certificadora local, y luego `magicserve start` de nuevo.
+
+## Contribuir
+
+Toda la herramienta es un único script de Bash (`run.sh`) — fácil de leer y modificar. Issues y PRs bienvenidos: [github.com/davidlomas/magicserve](https://github.com/davidlomas/magicserve).
+
+## Novedades
+
+### v2.0.0 🔌 (Breaking)
+
+- **Tú levantas tus propios servidores.** Magicserve ya no inicia procesos `node`/`php` — solo configura el proxy HTTPS de Nginx, el certificado SSL, la entrada en `/etc/hosts` y el túnel opcional apuntando al puerto que tú levantas (funciona con **cualquier** stack).
 - **Config más simple.** `magicserve.json` ahora solo lleva `domain` + `port` (+ `tunnel` opcional). Se eliminaron las propiedades `path` y `type`.
 - **`stop` no afecta a tus apps.** Solo retira el proxy y los túneles; tus servidores siguen corriendo.
-- **`status` revisa el puerto.** Ahora reporta si hay algo escuchando en cada puerto (vía `lsof`) en lugar de rastrear el PID de un servidor.
-- **`stopall` ya no mata tus servidores de apps** (esos los gestionas tú); sigue purgando todos los proxys, túneles, certificados y entradas custom de `hosts`.
+- **`status` revisa el puerto.** Reporta si hay algo escuchando en cada puerto (vía `lsof`) en lugar de rastrear el PID de un servidor.
+- **`stopall` ya no mata tus servidores de apps**; sigue purgando todos los proxys, túneles, certificados y entradas custom de `hosts`.
 
 > **Migrar desde v1.x:** elimina `path` y `type` de cada entrada de tu `magicserve.json`, y levanta tus servidores tú mismo antes/después de ejecutar `magicserve start`.
 
-### Novedades en v1.2.0 🚇
+### v1.2.0 🚇
 
-- **Localtunnel Integrado**: Expón de forma permanente y automática puertos de tu API al internet vía la nueva propiedad `tunnel` en el config json para recibir **Webhooks** de terceros (Mercado Libre, Stripe, etc).
+- **Localtunnel integrado**: expón cualquier puerto de tu API a internet vía la propiedad `tunnel` para recibir **webhooks** de terceros (Mercado Libre, Stripe, etc).
 
-### Novedades en v1.1.0 🚀
+### v1.1.0 🚀
 
-- **Visualización de Versión**: Ahora puedes ver la versión de Magicserve directamente en la terminal al ejecutar cualquier comando.
-- **Soporte para Archivos Grandes**: Nginx y PHP se configuran automáticamente para soportar payloads de hasta **100MB** (uploads y JSON), solucionando el error "413 Request Entity Too Large".
-- **SSL Automático**: Soporte nativo para HTTPS vía `mkcert`.
+- **Visualización de versión** en la terminal.
+- **Soporte para archivos grandes**: Nginx configurado para payloads de hasta **100MB**, solucionando el error "413 Request Entity Too Large".
+- **SSL automático** vía `mkcert`.
+
+## Licencia
+
+[MIT](./LICENSE) © David Lomas
