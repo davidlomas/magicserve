@@ -2,7 +2,9 @@
 
 *[Read in English](README.md)*
 
-Magicserve es una herramienta CLI para gestionar entornos de desarrollo web locales. Su objetivo es iniciar, detener y manejar el estado de múltiples servidores locales (`node` y `php`) al mismo tiempo, y automáticamente levantar un Reverse Proxy (Nginx) y generar certificados SSL vía `mkcert` para asignarle un dominio dinámico (ej. `tu-proyecto.test`).
+Magicserve es una herramienta CLI para gestionar entornos de desarrollo web locales. Levanta automáticamente un Reverse Proxy (Nginx) con HTTPS para múltiples servicios locales a la vez, genera certificados SSL vía `mkcert` y le asigna a cada uno un dominio dinámico (ej. `tu-proyecto.test`), además de URLs públicas opcionales vía `localtunnel`.
+
+> **Tú levantas tus propios servidores.** Magicserve **no** inicia ni detiene tus apps. Tú levantas lo que quieras (Node, PHP, Python, Go, …) en los puertos que listes en `magicserve.json`, y Magicserve enlaza el dominio HTTPS, el certificado y el túnel a ese puerto.
 
 ## Requisitos
 
@@ -45,20 +47,16 @@ Este comando creará automáticamente un archivo base llamado **`magicserve.json
 
 ### Archivo de configuración: `magicserve.json`
 
-Tu directorio central gestiona y levanta las aplicaciones referenciadas dentro del **`magicserve.json`**. Su estructura es así de sencilla:
+Tu directorio central mapea dominios a los puertos locales de las apps que tú mismo levantas. Su estructura es así de sencilla:
 
 ```json
 [
     {
-        "path": "../tu-proyecto-frontal",
         "domain": "tu-proyecto.test",
-        "type": "node",
         "port": 3000
     },
     {
-        "path": "../tu-api-backend",
         "domain": "api.tu-proyecto.test",
-        "type": "php",
         "port": 3001,
         "tunnel": "mi-super-api-dev"
     }
@@ -66,13 +64,11 @@ Tu directorio central gestiona y levanta las aplicaciones referenciadas dentro d
 ```
 
 **Propiedades:**
-- **`path`**: Ruta relativa o absoluta hacia el directorio del proyecto donde se deberá correr el servidor.
 - **`domain`**: El dominio de desarrollo local que se enlazará automáticamente (eg. `*.test`).
-- **`type`**: `node` (Correrá usando `npm run dev`) o `php` (Correrá el built-in server usando `php -S`).
-- **`port`**: El puerto interno que el servicio ocupará.
-- **`tunnel`**: *(Opcional)* Subdominio para enlazar puerto interno y exponerlo a internet público a través de `localtunnel` (Ej. webhooks de Mercado Libre o pruebas móviles).
+- **`port`**: El puerto local donde está escuchando **tu** servidor. Magicserve hace proxy del dominio a `localhost:<port>`; tú eres responsable de levantar ese servidor.
+- **`tunnel`**: *(Opcional)* Subdominio para exponer tu puerto a internet público a través de `localtunnel` (Ej. webhooks de Mercado Libre o pruebas móviles). Usa `true` para un subdominio aleatorio.
 
-Una vez configurado o modificado a tu gusto, utiliza los comandos de control.
+Una vez configurado a tu gusto, levanta tus propios servidores en esos puertos y utiliza los comandos de control.
 
 ## Comandos disponibles
 
@@ -88,8 +84,8 @@ flowchart TD
     subgraph Tu Computadora Local
         Nginx(Nginx Proxy Inverso SSL)
         LT(LocalTunnel Túnel Reverso)
-        Node((Servidor Node\nEj. 3000))
-        PHP((Servidor PHP\nEj. 3001))
+        Node((Tu Servidor\nEj. 3000))
+        PHP((Tu Servidor\nEj. 3001))
     end
 
     Dev -- "https://tu-proyecto.test" --> Nginx
@@ -100,15 +96,26 @@ flowchart TD
     LT -- "Túnel" --> PHP
 ```
 
+> Magicserve gestiona las partes de infraestructura (proxy Nginx, SSL, hosts, túnel). Los servidores detrás de los puertos los inicias y detienes tú.
 
 Dentro del directorio donde está tu `magicserve.json`, dispones de los siguientes comandos mágicos:
 
-- **`magicserve start`**: Inicia todos los servicios del `magicserve.json` en los puertos definidos, genera certificados SSL dinámicos de ser necesario y configura Nginx.
-- **`magicserve stop`**: Detiene ordenadamente los servicios activos mencionados de tu `magicserve.json`.
-- **`magicserve status`**: Te muestra en terminal cuáles de tus proyectos están activos actualmente y cuál es su PID.
-- **`magicserve stopall`**: Comando de emergencia. Busca y destruye TODOS los demonios, configuraciones temporales nginx relacionadas, certificados, puertos y purga todas las entradas de localhost customizadas en todo el sistema, restaurando tu computadora.
+- **`magicserve start`**: Para cada dominio genera el certificado SSL si hace falta, agrega la entrada en `/etc/hosts`, escribe el proxy HTTPS de Nginx hacia `localhost:<port>` y abre los túneles configurados. (Levanta tus servidores antes o después — Magicserve no los inicia.)
+- **`magicserve stop`**: Quita los proxys de Nginx y las entradas de `/etc/hosts` y cierra los túneles de los dominios de tu `magicserve.json`. Tus servidores siguen corriendo.
+- **`magicserve status`**: Te muestra si hay un servidor escuchando en el puerto de cada dominio, más el estado y la URL pública de los túneles.
+- **`magicserve stopall`**: Comando de emergencia. Destruye TODAS las configuraciones de proxy de Nginx, túneles, certificados SSL y entradas custom de `localhost` en todo el sistema, restaurando tu computadora. (Ya no mata tus servidores de apps — esos los gestionas tú.)
 
 ---
+
+### Novedades en v2.0.0 🔌 (Breaking)
+
+- **Tú levantas tus propios servidores.** Magicserve ya no inicia procesos `node`/`php` — solo configura el proxy HTTPS de Nginx, el certificado SSL, la entrada en `/etc/hosts` y el túnel opcional apuntando al puerto que tú levantas (funciona con **cualquier** stack: Node, PHP, Python, Go, …).
+- **Config más simple.** `magicserve.json` ahora solo lleva `domain` + `port` (+ `tunnel` opcional). Se eliminaron las propiedades `path` y `type`.
+- **`stop` no afecta a tus apps.** Solo retira el proxy y los túneles; tus servidores siguen corriendo.
+- **`status` revisa el puerto.** Ahora reporta si hay algo escuchando en cada puerto (vía `lsof`) en lugar de rastrear el PID de un servidor.
+- **`stopall` ya no mata tus servidores de apps** (esos los gestionas tú); sigue purgando todos los proxys, túneles, certificados y entradas custom de `hosts`.
+
+> **Migrar desde v1.x:** elimina `path` y `type` de cada entrada de tu `magicserve.json`, y levanta tus servidores tú mismo antes/después de ejecutar `magicserve start`.
 
 ### Novedades en v1.2.0 🚇
 

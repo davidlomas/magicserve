@@ -2,7 +2,9 @@
 
 *[Leer en Español](README.es.md)*
 
-Magicserve is a CLI tool for managing local web development environments. Its goal is to start, stop, and manage the state of multiple local servers (`node` and `php`) simultaneously, automatically set up a Reverse Proxy (Nginx), and generate SSL certificates via `mkcert` to assign them a dynamic local domain (e.g. `your-project.test`).
+Magicserve is a CLI tool for managing local web development environments. It automatically sets up a Reverse Proxy (Nginx) with HTTPS for multiple local services at once, generates SSL certificates via `mkcert`, and assigns each a dynamic local domain (e.g. `your-project.test`) — plus optional public `localtunnel` URLs.
+
+> **You run your own servers.** Magicserve does **not** start or stop your apps. Launch whatever you want (Node, PHP, Python, Go, …) on the ports listed in `magicserve.json`, and Magicserve wires the HTTPS domain, certificate, and tunnel to that port.
 
 ## Requirements
 
@@ -45,20 +47,16 @@ This command will automatically create a base **`magicserve.json`** file in the 
 
 ### Configuration File: `magicserve.json`
 
-Your central directory manages and starts the applications referenced within the **`magicserve.json`**. Its structure is this simple:
+Your central directory maps domains to the local ports of the apps you run yourself. Its structure is this simple:
 
 ```json
 [
     {
-        "path": "../your-frontend-project",
         "domain": "your-project.test",
-        "type": "node",
         "port": 3000
     },
     {
-        "path": "../your-backend-api",
         "domain": "api.your-project.test",
-        "type": "php",
         "port": 3001,
         "tunnel": "my-cool-api-dev"
     }
@@ -66,13 +64,11 @@ Your central directory manages and starts the applications referenced within the
 ```
 
 **Properties:**
-- **`path`**: Relative or absolute path to the project's directory where the server should run.
 - **`domain`**: The local development domain that will be automatically mapped (e.g. `*.test`).
-- **`type`**: `node` (Runs using `npm run dev`) or `php` (Runs the PHP built-in server using `php -S`).
-- **`port`**: The internal port the service will use.
-- **`tunnel`**: *(Optional)* Subdomain to securely expose your internal port to the public internet via `localtunnel` (Great for testing third-party Webhooks like Mercado Libre or local mobile testing).
+- **`port`**: The local port where **your** server is listening. Magicserve proxies the domain to `localhost:<port>`; you are responsible for starting that server.
+- **`tunnel`**: *(Optional)* Subdomain to securely expose your port to the public internet via `localtunnel` (Great for testing third-party Webhooks like Mercado Libre or local mobile testing). Use `true` for a random subdomain.
 
-Once configured or modified to your liking, you can use the control commands.
+Once configured to your liking, start your own servers on those ports, then use the control commands below.
 
 ## Available Commands
 
@@ -88,8 +84,8 @@ flowchart TD
     subgraph Your Local Machine
         Nginx(Nginx Reverse Proxy with HTTPS)
         LT(LocalTunnel Reverse Tunnel)
-        Node((Node Server\ne.g. 3000))
-        PHP((PHP Server\ne.g. 3001))
+        Node((Your Server\ne.g. 3000))
+        PHP((Your Server\ne.g. 3001))
     end
 
     Dev -- "https://your-project.test" --> Nginx
@@ -100,14 +96,26 @@ flowchart TD
     LT -- "Tunnel" --> PHP
 ```
 
+> Magicserve manages the dashed parts (Nginx proxy, SSL, hosts, tunnel). The servers behind the ports are started and stopped by you.
+
 Within the directory where your `magicserve.json` is located, you have the following magic commands available:
 
-- **`magicserve start`**: Starts all services declared in `magicserve.json` on the defined ports, generates dynamic SSL certificates if necessary, and configures Nginx.
-- **`magicserve stop`**: Orderly stops the active services mentioned in your `magicserve.json`.
-- **`magicserve status`**: Shows a terminal output of which projects are currently active and their PIDs.
-- **`magicserve stopall`**: Emergency command. Finds and destroys ALL active daemons, related Nginx configurations, certificates, processes, and purges all custom localhost entries system-wide, restoring your computer's clean state.
+- **`magicserve start`**: For every domain, generates an SSL certificate if needed, adds the `/etc/hosts` entry, writes the Nginx HTTPS proxy to `localhost:<port>`, and opens any configured tunnels. (Start your own servers first or afterward — Magicserve does not launch them.)
+- **`magicserve stop`**: Removes the Nginx proxies and `/etc/hosts` entries and closes the tunnels for the domains in your `magicserve.json`. Your servers keep running.
+- **`magicserve status`**: Shows whether a server is currently listening on each domain's port, plus the status and public URL of any tunnels.
+- **`magicserve stopall`**: Emergency command. Destroys ALL Nginx proxy configs, tunnels, SSL certificates and custom `localhost` entries system-wide, restoring your machine's clean state. (It no longer kills your app servers — those are yours to manage.)
 
 ---
+
+### Features in v2.0.0 🔌 (Breaking)
+
+- **You run your own servers.** Magicserve no longer launches `node`/`php` processes — it only sets up the Nginx HTTPS proxy, SSL certificate, `/etc/hosts` entry and optional tunnel pointing at the port you bring up yourself (works with **any** stack: Node, PHP, Python, Go, …).
+- **Simpler config.** `magicserve.json` now takes only `domain` + `port` (+ optional `tunnel`). The `path` and `type` properties have been removed.
+- **`stop` is non-destructive to your apps.** It tears down the proxy and tunnels only; your servers keep running.
+- **`status` probes the port.** It now reports whether something is listening on each port (via `lsof`) instead of tracking a server PID.
+- **`stopall` no longer kills app servers** (those are yours to manage); it still purges all proxies, tunnels, certificates and custom `hosts` entries.
+
+> **Migrating from v1.x:** remove `path` and `type` from each entry in your `magicserve.json`, and start your servers yourself before/after running `magicserve start`.
 
 ### Features in v1.2.0 🚇
 

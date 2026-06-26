@@ -45,43 +45,11 @@ usage() {
     echo "  magicserve [start|stop|stopall|status|init]"
     echo ""
     echo "  init     - Crea un archivo magicserve.json de plantilla en la carpeta actual"
-    echo "  start    - Inicia todos los servicios del magicserve.json"
-    echo "  stop     - Detiene los servicios del magicserve.json"
-    echo "  stopall  - Busca y detiene TODOS los dominios (sin depender de magicserve.json) y borra todo rastro"
-    echo "  status   - Muestra el estado de los servicios"
+    echo "  start    - Configura proxy Nginx (HTTPS) y túneles para los dominios del magicserve.json"
+    echo "  stop     - Detiene los proxys y túneles del magicserve.json (no toca tus servidores)"
+    echo "  stopall  - Borra TODOS los proxys, túneles, certificados y entradas de hosts (sin depender de magicserve.json)"
+    echo "  status   - Muestra si hay un servidor escuchando en cada puerto y el estado de los túneles"
     exit 1
-}
-
-start_server() {
-    local PATH_DIR=$1
-    local DOMAIN=$2
-    local TYPE=$3
-    local PORT=$4
-
-    local PID_FILE="$PIDS_DIR/${DOMAIN}.pid"
-
-    echo "🚀 Iniciando $DOMAIN ($TYPE) en puerto $PORT..."
-
-    # Navegar al directorio del proyecto relativo al script
-    cd "$SCRIPT_DIR/$PATH_DIR" || {
-        echo "❌ Error: Directorio $PATH_DIR no encontrado para $DOMAIN"
-        return
-    }
-
-    if [ "$TYPE" == "node" ]; then
-        nohup npm run dev -- --port $PORT > "$LOGS_DIR/${DOMAIN}.log" 2>&1 &
-        local PID=$!
-        echo $PID > "$PID_FILE"
-        echo "✅ Node corriendo (PID: $PID)"
-    elif [ "$TYPE" == "php" ]; then
-        # El docroot por defecto para php es el directorio actual
-        nohup php -d upload_max_filesize=100M -d post_max_size=100M -S "localhost:$PORT" -t . > "$LOGS_DIR/${DOMAIN}.log" 2>&1 &
-        local PID=$!
-        echo $PID > "$PID_FILE"
-        echo "✅ PHP corriendo (PID: $PID)"
-    else
-        echo "❌ Tipo $TYPE no soportado (usa 'node' o 'php')"
-    fi
 }
 
 start_proxy() {
@@ -200,17 +168,16 @@ start_tunnel() {
 }
 
 start_all() {
-    echo "🌟 Iniciando todos los servicios desde magicserve.json..."
+    echo "🌟 Configurando proxys y túneles desde magicserve.json..."
+    echo "💡 Recuerda: tú debes levantar tus servidores (node/php/python/etc) en los puertos indicados."
+    echo ""
 
     local LENGTH=$(jq '. | length' "$CONFIG_FILE")
     for (( i=0; i<$LENGTH; i++ )); do
-        local PATH_DIR=$(jq -r ".[$i].path" "$CONFIG_FILE")
         local DOMAIN=$(jq -r ".[$i].domain" "$CONFIG_FILE")
-        local TYPE=$(jq -r ".[$i].type" "$CONFIG_FILE")
         local PORT=$(jq -r ".[$i].port" "$CONFIG_FILE")
         local TUNNEL=$(jq -r ".[$i].tunnel // empty" "$CONFIG_FILE")
 
-        start_server "$PATH_DIR" "$DOMAIN" "$TYPE" "$PORT"
         start_proxy "$DOMAIN" "$PORT"
 
         if [ -n "$TUNNEL" ]; then
@@ -229,7 +196,7 @@ start_all() {
 }
 
 stop_all() {
-    echo "🛑 Deteniendo todos los servicios..."
+    echo "🛑 Deteniendo proxys y túneles..."
 
     local HOSTS_FILE="/etc/hosts"
     local NGINX_SERVER_DIR="/opt/homebrew/etc/nginx/servers"
@@ -237,18 +204,6 @@ stop_all() {
     local LENGTH=$(jq '. | length' "$CONFIG_FILE")
     for (( i=0; i<$LENGTH; i++ )); do
         local DOMAIN=$(jq -r ".[$i].domain" "$CONFIG_FILE")
-        local PID_FILE="$PIDS_DIR/${DOMAIN}.pid"
-
-        if [ -f "$PID_FILE" ]; then
-            local PID=$(cat "$PID_FILE")
-            if ps -p $PID > /dev/null; then
-                kill $PID
-                echo "🛑 Servidor para $DOMAIN detenido (PID: $PID)."
-            else
-                echo "⚠️ Proceso para $DOMAIN no encontrado (el archivo PID será limpiado)."
-            fi
-            rm "$PID_FILE"
-        fi
 
         local TUNNEL_PID_FILE="$PIDS_DIR/${DOMAIN}_tunnel.pid"
         local TUNNEL_URL_FILE="$PIDS_DIR/${DOMAIN}_tunnel.url"
@@ -279,7 +234,7 @@ stop_all() {
         sudo nginx -s reload > /dev/null 2>&1
     fi
 
-    echo "✅ Todo detenido."
+    echo "✅ Proxys y túneles detenidos. (Tus servidores siguen corriendo, deténlos tú mismo)."
 }
 
 status() {
@@ -287,17 +242,14 @@ status() {
     local LENGTH=$(jq '. | length' "$CONFIG_FILE")
     for (( i=0; i<$LENGTH; i++ )); do
         local DOMAIN=$(jq -r ".[$i].domain" "$CONFIG_FILE")
-        local PID_FILE="$PIDS_DIR/${DOMAIN}.pid"
+        local PORT=$(jq -r ".[$i].port" "$CONFIG_FILE")
 
-        if [ -f "$PID_FILE" ]; then
-            local PID=$(cat "$PID_FILE")
-            if ps -p $PID > /dev/null; then
-                 echo "🟢 $DOMAIN: Corriendo (PID: $PID)"
-            else
-                 echo "🔴 $DOMAIN: Archivo PID existe pero el proceso no está corriendo"
-            fi
+        # No gestionamos el proceso del servidor: comprobamos si algo escucha en el puerto
+        local LISTENER=$(lsof -nP -iTCP:$PORT -sTCP:LISTEN -t 2>/dev/null | head -1)
+        if [ -n "$LISTENER" ]; then
+            echo "🟢 $DOMAIN → localhost:$PORT (servidor escuchando, PID: $LISTENER)"
         else
-            echo "⚪️ $DOMAIN: Detenido"
+            echo "⚪️ $DOMAIN → localhost:$PORT (nada escuchando — levanta tu servidor)"
         fi
 
         local TUNNEL_PID_FILE="$PIDS_DIR/${DOMAIN}_tunnel.pid"
@@ -350,35 +302,11 @@ stop_all_global() {
         echo "  ✅ No se encontraron archivos .pid"
     fi
 
-    # ─── 2. Matar TODOS los servidores PHP built-in de la computadora ───
-    echo ""
-    echo "🔍 Buscando servidores PHP built-in (php -S)..."
-    local PHP_PIDS=$(pgrep -f "php -S" 2>/dev/null)
-    if [ -n "$PHP_PIDS" ]; then
-        echo "$PHP_PIDS" | while read PID; do
-            local CMD=$(ps -p $PID -o args= 2>/dev/null)
-            kill $PID 2>/dev/null
-            echo "  🛑 PHP detenido (PID: $PID) → $CMD"
-        done
-    else
-        echo "  ✅ No se encontraron servidores PHP"
-    fi
+    # NOTA: Magicserve ya no lanza servidores (node/php/python), así que tampoco
+    # los mata aquí. Tus servidores los gestionas tú. Solo limpiamos lo que
+    # Magicserve crea: túneles, configs de nginx, /etc/hosts, certificados y logs.
 
-    # ─── 3. Matar TODOS los servidores Node de desarrollo ───
-    echo ""
-    echo "🔍 Buscando servidores Node de desarrollo (vite, next, nuxt, webpack)..."
-    local NODE_PIDS=$(pgrep -f "(vite|next dev|nuxt|webpack-dev-server|node.*dev)" 2>/dev/null)
-    if [ -n "$NODE_PIDS" ]; then
-        echo "$NODE_PIDS" | while read PID; do
-            local CMD=$(ps -p $PID -o args= 2>/dev/null | head -c 120)
-            kill $PID 2>/dev/null
-            echo "  🛑 Node detenido (PID: $PID) → $CMD"
-        done
-    else
-        echo "  ✅ No se encontraron servidores Node de desarrollo"
-    fi
-
-    # ─── 3.5. Matar procesos de localtunnel ───
+    # ─── 2. Matar procesos de localtunnel ───
     echo ""
     echo "🔍 Buscando procesos de localtunnel..."
     local LT_PIDS=$(pgrep -f "localtunnel" 2>/dev/null)
@@ -466,15 +394,11 @@ init_config() {
     cat <<EOF > "$CONFIG_FILE"
 [
     {
-        "path": "../tu-proyecto-frontal",
         "domain": "tu-proyecto.test",
-        "type": "node",
         "port": 3000
     },
     {
-        "path": "../tu-api-backend",
         "domain": "api.tu-proyecto.test",
-        "type": "php",
         "port": 3001,
         "tunnel": "mi-super-api-dev"
     }
